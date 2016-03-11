@@ -123,7 +123,7 @@ class helper_plugin_twofactorgoogleauth extends Twofactor_Auth_Module {
      *      attribute.
      */
     private function generateQRCodeData($name, $secret) {
-		$url = 'otpauth://totp/'.$name.'?secret='.$secret;
+		$url = 'otpauth://totp/'.rawurlencode($name).'?secret='.$secret;
 		// Capture PNG image for embedding into HTML.
 		ob_start();
 		// NOTE: the @ is required to supress output errors when trying to get 
