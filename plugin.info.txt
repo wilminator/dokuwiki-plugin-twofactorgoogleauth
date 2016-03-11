@@ -1,7 +1,7 @@
 ﻿base   twofactorgoogleauth
 author Michael Wilmes
 email  mwilmes@avc.edu
-date   2016-01-06
+date   2016-03-11
 name   Two Factor Authentication - Google Authenticator Plugin
 desc   Google Authenticator support plugin for the Twofactor authentication plugin.
 url    https://www.dokuwiki.org/plugin:twofactorgoogleauth
