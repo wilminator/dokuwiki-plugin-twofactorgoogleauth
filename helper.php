@@ -125,12 +125,15 @@ class helper_plugin_twofactorgoogleauth extends Twofactor_Auth_Module {
     private function generateQRCodeData($name, $secret) {
 		$url = 'otpauth://totp/'.rawurlencode($name).'?secret='.$secret;
 		// Capture PNG image for embedding into HTML.
-		ob_start();
-		// NOTE: the @ is required to supress output errors when trying to get 
-		// the PNG data from the output buffer.
-		@QRcode::png($url);
-		$image_data = ob_get_contents();
-		ob_end_clean();			
+        // Thanks to https://evertpot.com/222/ for the stream tutorial
+        // First create a stream that the PNG will be written into.
+        $stream = fopen('php://memory','r+');
+        // Write the PNG into the stream
+        QRcode::png($url, $stream);     
+        // Reset the stream to the start.
+        rewind($stream);
+        // Read in the contents of the stream.
+        $image_data = stream_get_contents($stream);
 		// Convert to data URI.
 		return "data:image/png;base64," . base64_encode($image_data);
 	}
