@@ -102,7 +102,7 @@ class helper_plugin_twofactorgoogleauth extends Twofactor_Auth_Module {
 	 * Transmit the message via email to the address on file.
 	 * As a special case, configure the mail settings to send only via text.
 	 */
-	//public function transmitMessage($message);
+	//public function transmitMessage($subject, $message);
 	
 	/**
 	 * 	This module authenticates against a time-based code.
