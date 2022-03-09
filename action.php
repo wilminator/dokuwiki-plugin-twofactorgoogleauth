@@ -10,22 +10,17 @@ require_once(dirname(__FILE__).'/phpqrcode.php');
  * If we turn this into a helper class, it can have its own language and settings files.
  * Until then, we can only use per-user settings.
  */
-class helper_plugin_twofactorgoogleauth extends Provider
+class action_plugin_twofactorgoogleauth extends Provider
 {
-    /**
-     * The user must have verified their GA is configured correctly first.
-     */
-    public function canUse($user = null)
-    {
-        return ($this->_settingExists("verified", $user) && $this->getConf('enable') === 1);
-    }
 
     /**
-     * This module does provide authentication functionality at the main login screen.
+     * @inheritDoc
      */
-    public function canAuthLogin()
+    public function isConfigured()
     {
-        return true;
+        return $this->getConf('enable') === 1 &&
+            $this->settings->get('secret') &&
+            $this->settings->get('verified');
     }
 
     /**
@@ -33,50 +28,47 @@ class helper_plugin_twofactorgoogleauth extends Provider
      */
     public function renderProfileForm(Form $form)
     {
-        global $conf,$USERINFO;
-        $elements = array();
+        global $conf;
+        global $USERINFO;
 
-        if ($this->_settingExists("secret")) { // The user has a revokable GA secret.
+        if ($this->settings->get('secret')) { // The user has a revokable GA secret.
             // Show the QR code so the user can add other devices.
-            $mysecret = $this->_settingGet("secret");
+            $mysecret = $this->settings->get('secret');
             $data = $this->generateQRCodeData($USERINFO['name'].'@'.$conf['title'], $mysecret);
-            $elements[] = '<figure><figcaption>'.$this->getLang('directions').'</figcaption>';
-            $elements[] = '<img src="'.$data.'" alt="'.$this->getLang('directions').'" />';
-            $elements[] = '</figure>';
+            $form->addHTML('<figure><figcaption>'.$this->getLang('directions').'</figcaption>');
+            $form->addHTML('<img src="'.$data.'" alt="'.$this->getLang('directions').'" />');
+            $form->addHTML('</figure>');
             // Check to see if the user needs to verify the code.
-            if (!$this->_settingExists("verified")) {
-                $elements[] = '<span>'.$this->getLang('verifynotice').'</span>';
-                $elements[] = form_makeTextField(
+            if (!$this->settings->get('verified')) {
+                $form->addHTML('<span>'.$this->getLang('verifynotice').'</span>');
+                $form->addTextInput(
                     'googleauth_verify',
-                    '',
                     $this->getLang('verifymodule'),
-                    '',
-                    'block',
-                    array('size'=>'50', 'autocomplete'=>'off')
+                    ''
                 );
             }
             // Show the option to revoke the GA secret.
-            $elements[] = form_makeCheckboxField('googleauth_disable', '1', $this->getLang('killmodule'), '', 'block');
+            $form->addCheckbox('googleauth_disable', $this->getLang('killmodule'));
         } else { // The user may opt in using GA.
             //Provide a checkbox to create a personal secret.
-            $elements[] = form_makeCheckboxField('googleauth_enable', '1', $this->getLang('enablemodule'), '', 'block');
+            $form->addCheckbox('googleauth_enable', $this->getLang('enablemodule'));
         }
-        return $elements;
+        return $form;
     }
 
     /**
      * Process any user configuration.
      */
-    public function processProfileForm()
+    public function handleProfileForm()
     {
         global $INPUT;
         $ga = new dokuwiki\plugin\twofactor\GoogleAuthenticator();
-        $oldmysecret = $this->_settingGet("secret");
+        $oldmysecret = $this->settings->get('secret');
         if ($oldmysecret !== null) {
             if ($INPUT->bool('googleauth_disable', false)) {
-                $this->_settingDelete("secret");
+                $this->settings->delete('secret');
                 // Also delete verification. Otherwise the system will still expect the user to login with GA.
-                $this->_settingDelete("verified");
+                $this->settings->delete('verified');
                 return true;
             } else {
                 $otp = $INPUT->str('googleauth_verify', '');
@@ -86,7 +78,7 @@ class helper_plugin_twofactorgoogleauth extends Provider
                     if ($checkResult === false) {
                         return 'failed';
                     } else {
-                        $this->_settingSet("verified", true);
+                        $this->settings->set('verified', true);
                         return 'verified';
                     }
                 }
@@ -94,7 +86,7 @@ class helper_plugin_twofactorgoogleauth extends Provider
         } else {
             if ($INPUT->bool('googleauth_enable', false)) { // Only make a code if one is not set.
                 $mysecret = $ga->createSecret();
-                $this->_settingSet("secret", $mysecret);
+                $this->settings->set('secret', $mysecret);
                 return true;
             }
         }
@@ -102,27 +94,14 @@ class helper_plugin_twofactorgoogleauth extends Provider
     }
 
     /**
-     * This module cannot send messages.
-     */
-    public function canTransmitMessage()
-    {
-        return false;
-    }
-
-    /**
-     * Transmit the message via email to the address on file.
-     * As a special case, configure the mail settings to send only via text.
-     */
-    //public function transmitMessage($subject, $message);
-
-    /**
      *  This module authenticates against a time-based code.
      */
-    public function processLogin($code, $user = null)
+    public function processLogin($code)
     {
         $ga = new dokuwiki\plugin\twofactor\GoogleAuthenticator();
-        $expiry = $this->_getSharedConfig("generatorexpiry");
-        $secret = $this->_settingGet("secret", '', $user);
+        $twofactor = plugin_load('action', 'twofactor_profile');
+        $expiry = $twofactor->getConf('generatorexpiry');
+        $secret = $this->settings->get('secret', '');
         return $ga->verifyCode($secret, $code, $expiry);
     }
 
@@ -151,18 +130,11 @@ class helper_plugin_twofactorgoogleauth extends Provider
         return "data:image/png;base64," . base64_encode($image_data);
     }
 
-    public function isConfigured()
-    {
-        // TODO: Implement isConfigured() method.
-    }
-
-    public function handleProfileForm()
-    {
-        // TODO: Implement handleProfileForm() method.
-    }
-
+    /**
+     * @inheritDoc
+     */
     public function transmitMessage($code)
     {
-        // TODO: Implement transmitMessage() method.
+        return $this->getLang('verifymodule');
     }
 }
