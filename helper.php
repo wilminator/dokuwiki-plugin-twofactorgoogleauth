@@ -1,6 +1,7 @@
 <?php
 
 use dokuwiki\plugin\twofactor\Provider;
+use dokuwiki\Form\Form;
 
 // Load the PHP QR Code library.
 require_once(dirname(__FILE__).'/phpqrcode.php');
@@ -30,11 +31,11 @@ class helper_plugin_twofactorgoogleauth extends Provider
     /**
      * This user will need to interact with the QR code in order to configure GA.
      */
-    public function renderProfileForm()
+    public function renderProfileForm(Form $form)
     {
         global $conf,$USERINFO;
         $elements = array();
-        $ga = new PHPGangsta_GoogleAuthenticator();
+
         if ($this->_settingExists("secret")) { // The user has a revokable GA secret.
             // Show the QR code so the user can add other devices.
             $mysecret = $this->_settingGet("secret");
@@ -69,7 +70,7 @@ class helper_plugin_twofactorgoogleauth extends Provider
     public function processProfileForm()
     {
         global $INPUT;
-        $ga = new PHPGangsta_GoogleAuthenticator();
+        $ga = new dokuwiki\plugin\twofactor\GoogleAuthenticator();
         $oldmysecret = $this->_settingGet("secret");
         if ($oldmysecret !== null) {
             if ($INPUT->bool('googleauth_disable', false)) {
@@ -119,7 +120,7 @@ class helper_plugin_twofactorgoogleauth extends Provider
      */
     public function processLogin($code, $user = null)
     {
-        $ga = new PHPGangsta_GoogleAuthenticator();
+        $ga = new dokuwiki\plugin\twofactor\GoogleAuthenticator();
         $expiry = $this->_getSharedConfig("generatorexpiry");
         $secret = $this->_settingGet("secret", '', $user);
         return $ga->verifyCode($secret, $code, $expiry);
