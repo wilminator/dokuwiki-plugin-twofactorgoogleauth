@@ -18,8 +18,7 @@ class action_plugin_twofactorgoogleauth extends Provider
      */
     public function isConfigured()
     {
-        return $this->getConf('enable') === 1 &&
-            $this->settings->get('secret') &&
+        return $this->settings->get('secret') &&
             $this->settings->get('verified');
     }
 
@@ -40,15 +39,12 @@ class action_plugin_twofactorgoogleauth extends Provider
             $form->addHTML('</figure>');
             // Check to see if the user needs to verify the code.
             if (!$this->settings->get('verified')) {
-                $form->addHTML('<span>'.$this->getLang('verifynotice').'</span>');
+                $form->addHTML('<span>'.$this->getLang('verifynotice').'</span><br>');
                 $form->addTextInput(
                     'googleauth_verify',
-                    $this->getLang('verifymodule'),
-                    ''
+                    $this->getLang('verifymodule')
                 );
             }
-            // Show the option to revoke the GA secret.
-            $form->addCheckbox('googleauth_disable', $this->getLang('killmodule'));
         } else { // The user may opt in using GA.
             //Provide a checkbox to create a personal secret.
             $form->addCheckbox('googleauth_enable', $this->getLang('enablemodule'));
