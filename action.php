@@ -30,24 +30,21 @@ class action_plugin_twofactorgoogleauth extends Provider
         global $conf;
         global $USERINFO;
 
-        if ($this->settings->get('secret')) { // The user has a revokable GA secret.
+        if (!$this->settings->get('verified')) {
             // Show the QR code so the user can add other devices.
-            $mysecret = $this->settings->get('secret');
-            $data = $this->generateQRCodeData($USERINFO['name'].'@'.$conf['title'], $mysecret);
+            $secret = $this->getSecret();
+            $this->settings->set('secret', $secret);
+            $data = $this->generateQRCodeData($USERINFO['name'].'@'.$conf['title'], $secret);
             $form->addHTML('<figure><figcaption>'.$this->getLang('directions').'</figcaption>');
             $form->addHTML('<img src="'.$data.'" alt="'.$this->getLang('directions').'" />');
             $form->addHTML('</figure>');
-            // Check to see if the user needs to verify the code.
-            if (!$this->settings->get('verified')) {
-                $form->addHTML('<span>'.$this->getLang('verifynotice').'</span><br>');
-                $form->addTextInput(
-                    'googleauth_verify',
-                    $this->getLang('verifymodule')
-                );
-            }
-        } else { // The user may opt in using GA.
-            //Provide a checkbox to create a personal secret.
-            $form->addCheckbox('googleauth_enable', $this->getLang('enablemodule'));
+            $form->addHTML('<span>'.$this->getLang('verifynotice').'</span><br>');
+            $form->addTextInput(
+                'googleauth_verify',
+                $this->getLang('verifymodule')
+            );
+        } else {
+            $form->addHTML('<span>' . $this->getLang('passedsetup') . '</span>');
         }
         return $form;
     }
@@ -58,35 +55,11 @@ class action_plugin_twofactorgoogleauth extends Provider
     public function handleProfileForm()
     {
         global $INPUT;
-        $ga = new dokuwiki\plugin\twofactor\GoogleAuthenticator();
-        $oldmysecret = $this->settings->get('secret');
-        if ($oldmysecret !== null) {
-            if ($INPUT->bool('googleauth_disable', false)) {
-                $this->settings->delete('secret');
-                // Also delete verification. Otherwise the system will still expect the user to login with GA.
-                $this->settings->delete('verified');
-                return true;
-            } else {
-                $otp = $INPUT->str('googleauth_verify', '');
-                if ($otp) { // The user will use GA.
-                    $checkResult = $this->processLogin($otp);
-                    // If the code works, then flag this account to use GA.
-                    if ($checkResult === false) {
-                        return 'failed';
-                    } else {
-                        $this->settings->set('verified', true);
-                        return 'verified';
-                    }
-                }
-            }
-        } else {
-            if ($INPUT->bool('googleauth_enable', false)) { // Only make a code if one is not set.
-                $mysecret = $ga->createSecret();
-                $this->settings->set('secret', $mysecret);
-                return true;
-            }
+
+        $otp = $INPUT->str('googleauth_verify');
+        if ($otp && $this->processLogin($otp)) {
+            $this->settings->set('verified', true);
         }
-        return null;
     }
 
     /**
@@ -97,8 +70,23 @@ class action_plugin_twofactorgoogleauth extends Provider
         $ga = new dokuwiki\plugin\twofactor\GoogleAuthenticator();
         $twofactor = plugin_load('action', 'twofactor_profile');
         $expiry = $twofactor->getConf('generatorexpiry');
-        $secret = $this->settings->get('secret', '');
+        $secret = $this->settings->get('secret');
         return $ga->verifyCode($secret, $code, $expiry);
+    }
+
+    /**
+     * If there is
+     * @return string
+     * @throws Exception
+     */
+    public function getSecret()
+    {
+        $secret = $this->settings->get('secret');
+        if (!$secret) {
+            $ga = new dokuwiki\plugin\twofactor\GoogleAuthenticator();
+            $secret = $ga->createSecret();
+        }
+        return $secret;
     }
 
     /**
